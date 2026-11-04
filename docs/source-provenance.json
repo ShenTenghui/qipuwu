@@ -1,0 +1,34 @@
+{
+  "kind": "source showcase",
+  "snapshot_date": "2026-11-04",
+  "sources": [
+    {
+      "source_path": "app/training_schedule_v7.py",
+      "sha256": "7ec16479a2fb5cc41fe26cba22ac607fd37606734a878e24b68aa917d0f4ab55",
+      "copy": "byte-for-byte copy",
+      "destination": "app/training_schedule_v7.py"
+    },
+    {
+      "source_path": "app/training_schedule_v6.py",
+      "sha256": "9ac6015709e6ddb81614925e8141c0e36095b0db4d861e8d9c75b5bcc14ac1be",
+      "excerpt_function": "_separate_games",
+      "source_lines": [
+        30,
+        89
+      ],
+      "destination": "app/training_schedule_v6.py",
+      "excerpt_sha256": "cff6d08d1374989e7dd8bde1567b800e0836ad4555bae012b1487b57b493207a",
+      "copy": "function source retained; only module header/import added"
+    },
+    {
+      "source_path": "scripts/test_training_schedule_v7.py",
+      "sha256": "76682a9d71b40fff66aaec387b154b193cadcf18a8aac82b8c75c7a52fa0674f",
+      "copy": "test ideas adapted; synthetic inputs only",
+      "destination": "tests/test_schedule.py"
+    }
+  ],
+  "packaged_source_sha256": {
+    "app/training_schedule_v7.py": "7ec16479a2fb5cc41fe26cba22ac607fd37606734a878e24b68aa917d0f4ab55",
+    "app/training_schedule_v6.py": "afdd862345e81f6f7318af64fd8811ecd70b75b409e097b9b4e7f6c075a8f36f"
+  }
+}

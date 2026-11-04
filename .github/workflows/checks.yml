@@ -1,0 +1,25 @@
+name: Selected component checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12", "3.14"]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run component and HTTP checks
+        run: python -B -m unittest discover -s tests -v
+      - name: Run synthetic examples
+        run: python -B examples/schedule_demo.py --scenario all
