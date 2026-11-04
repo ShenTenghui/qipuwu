@@ -6,7 +6,7 @@
 
 QipuWu is a personal Xiangqi learning system built around a recurring workflow: review a game, explore alternatives, choose positions to revisit, practise, and return to the original context.
 
-This repository contains the product case study, selected scheduling code and an independent demonstration using synthetic practice items.
+This repository contains QipuWu's practice scheduler, design notes and an interactive lab using synthetic practice items.
 
 ![Interactive scheduling demonstration with synthetic practice items](docs/schedule-lab-desktop.png)
 
@@ -16,9 +16,9 @@ Game records → engine analysis → interactive review → personal collection 
 
 The full product supports move-level review, free variations, user-selected practice material, review scheduling and repeated opening positions.
 
-## Selected component: practice scheduling
+## Practice scheduling
 
-The scheduling module demonstrates:
+The scheduler uses:
 
 - a target of six new items and four review items per round;
 - borrowing between pools when either is short;
