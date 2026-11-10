@@ -59,3 +59,11 @@ Engine evaluation and learning state are separate. Choosing a position for pract
 Consistent evaluation viewpoints, typed scores, traceable references and versioned results support trustworthy feedback. The interface and background computation need to work together so that analysis supports actual review.
 
 The source provenance document identifies the original relative paths and extraction boundaries. Third-party boards, engines, weights and production data are not bundled with this selected component.
+
+
+
+## User-authored repertoires
+
+The repository also includes the product's manual recording and frozen-publication core: record both sides, explicitly select training edges, preserve multiple branches, and rehearse the actual selected path. Draft moves are not training answers. A legal move outside the user's selection is a recall mismatch, not a move-quality judgment.
+
+Run the standard-library synthetic example with `python -B examples/manual_repertoire_demo.py`. See [the module guide](docs/manual-repertoire.md) and [source provenance](docs/manual-repertoire-provenance.md). The original scheduler examples and checks are preserved.

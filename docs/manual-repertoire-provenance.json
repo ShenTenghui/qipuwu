@@ -1,0 +1,62 @@
+{
+  "source_project": "QipuWu local source",
+  "personal_data_included": false,
+  "engine_binaries_included": false,
+  "files": [
+    {
+      "source": "app/repertoire_training.py",
+      "target": "app/repertoire_training.py",
+      "kind": "unchanged_source",
+      "source_sha256": "76d32775262a203c2e164247143c93a6140a3ec5af6724b82e6c1014e837690f",
+      "export_sha256": "76d32775262a203c2e164247143c93a6140a3ec5af6724b82e6c1014e837690f"
+    },
+    {
+      "source": "app/repertoire_editor.py",
+      "target": "app/repertoire_editor.py",
+      "kind": "unchanged_source",
+      "source_sha256": "cf87768a7f787b75efa28f529af00ecf41c729594dc83f4320fbac9477de8ffc",
+      "export_sha256": "cf87768a7f787b75efa28f529af00ecf41c729594dc83f4320fbac9477de8ffc"
+    },
+    {
+      "source": "app/repertoire_graph.py",
+      "target": "app/repertoire_graph.py",
+      "kind": "unchanged_source",
+      "source_sha256": "f73074c19ea162573814354c46384a7a00493ab5bed76dee637c3c63a9bb4592",
+      "export_sha256": "f73074c19ea162573814354c46384a7a00493ab5bed76dee637c3c63a9bb4592"
+    },
+    {
+      "source": "app/training_terminal.py",
+      "target": "app/training_terminal.py",
+      "kind": "unchanged_source",
+      "source_sha256": "cdd9b5cc208c47dbceae26f01e66c6b44ce9c7084a23720d0d21f4dcd9055402",
+      "export_sha256": "cdd9b5cc208c47dbceae26f01e66c6b44ce9c7084a23720d0d21f4dcd9055402"
+    },
+    {
+      "source": "scripts/xq_notation.py",
+      "target": "scripts/xq_notation.py",
+      "kind": "unchanged_source",
+      "source_sha256": "4b7a24bd22053c8590102d3eecd93b9d196176497488a1337f179aec1becb085",
+      "export_sha256": "4b7a24bd22053c8590102d3eecd93b9d196176497488a1337f179aec1becb085"
+    },
+    {
+      "source": "web/repertoire-training/editor-model.js",
+      "target": "web/repertoire-training/editor-model.js",
+      "kind": "unchanged_source",
+      "source_sha256": "767c69153cad2d027b3a258a2be5e5cd081e9e0a0f660fb756a3f7a854306177",
+      "export_sha256": "767c69153cad2d027b3a258a2be5e5cd081e9e0a0f660fb756a3f7a854306177"
+    },
+    {
+      "source": "scripts/opening_classifier.py",
+      "target": "scripts/opening_classifier.py",
+      "kind": "pure_function_subset",
+      "functions": [
+        "_PIECE",
+        "_screens",
+        "_geometry",
+        "_in_check"
+      ],
+      "source_sha256": "185b3a1212e55416ad9a205293457f05e5bee97e3a20cc0b74adf023266f7750",
+      "export_sha256": "4978d1763721f9720e8d8113c732c6ec402700e8e8791468053a488f61550e6a"
+    }
+  ]
+}

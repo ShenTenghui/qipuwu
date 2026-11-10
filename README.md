@@ -83,3 +83,11 @@ python -m unittest discover -s tests -v
 此仓库包括训练编排代码、独立演示、检查和产品设计记录。代码的原始相对位置、提取方式与校验信息见[来源说明](docs/source-provenance.md)。
 
 完整产品使用的第三方棋盘、引擎、权重与其他资料有各自的来源及许可；本仓库的精选模块不打包这些组件。
+
+
+
+## 本人录谱与冻结发布
+
+新增真实录谱后端核心：手动记录双方着法、逐边选择纳入、多分支冻结发布，以及按实际路线练习。未纳入着只作草稿；选中范围外的合法着不因此被判为差棋。
+
+运行标准库合成示例：`python -B examples/manual_repertoire_demo.py`。完整说明、边界和来源见[录谱模块](docs/manual-repertoire.md)及[源码提取说明](docs/manual-repertoire-provenance.md)。原训练编排演示与检查继续保留。
