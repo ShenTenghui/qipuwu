@@ -42,8 +42,8 @@
       "source": "web/repertoire-training/editor-model.js",
       "target": "web/repertoire-training/editor-model.js",
       "kind": "unchanged_source",
-      "source_sha256": "7f6355930c82e316cec4ae90a6167c75e58c4fd4f15f880b2811fbe68f6b8237",
-      "export_sha256": "7f6355930c82e316cec4ae90a6167c75e58c4fd4f15f880b2811fbe68f6b8237"
+      "source_sha256": "adc6a33e11f74a4a58f3d6c53cd2de6043caf4636f174ef13c5e944195702ee1",
+      "export_sha256": "adc6a33e11f74a4a58f3d6c53cd2de6043caf4636f174ef13c5e944195702ee1"
     },
     {
       "source": "scripts/opening_classifier.py",
@@ -58,5 +58,23 @@
       "source_sha256": "185b3a1212e55416ad9a205293457f05e5bee97e3a20cc0b74adf023266f7750",
       "export_sha256": "4978d1763721f9720e8d8113c732c6ec402700e8e8791468053a488f61550e6a"
     }
-  ]
+  ],
+  "controller_scope": {
+    "source_export": "byte-identical UTF-8 editor controller",
+    "reference_recovery": "bounded automatic requests and separate cancellation",
+    "notification_kind": [
+      "editor",
+      "recommendations"
+    ],
+    "public_tests": "synthetic API, browser timer semantics, retry and pending-reference navigation",
+    "not_exported": [
+      "website UI",
+      "recommendation backend",
+      "scheduler",
+      "background queue",
+      "personal state",
+      "engine receipts",
+      "engine binaries"
+    ]
+  }
 }
