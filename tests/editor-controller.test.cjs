@@ -3,7 +3,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
-const {Controller}=require('../web/repertoire-training/editor-model.js');
+const {Controller,branchSummary,PENDING_KEY}=require('../web/repertoire-training/editor-model.js');
 
 function fixture(wrap){
   const calls=[],data=new Map();let revision=1,node='root',serial=0;
@@ -151,4 +151,119 @@ test('a pending recommendation does not block navigation or recording',async()=>
   assert.equal(c.state.busy,false);assert.equal(c.state.recommendationLoading,true);
   assert.ok(calls.some(call=>call.path==='editor_record'));c.leave();
   assert.equal(signals.at(-1).aborted,true);
+});
+
+for(const operation of ['editor_remove_branch','editor_restore_branch']){
+  test(operation+' replays the same durable request after reload and a lost response',async()=>{
+    const calls=[],data=new Map(),receipts=new Map();let revision=1,commits=0,lost=true,exists=operation==='editor_remove_branch';
+    const storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value),removeItem:key=>data.delete(key)};
+    const view=node=>({id:'synthetic',revision,root_id:'root',current:{id:node,fen:'9/9/9/9/9/9/9/9/9/9 w'},
+      nodes:[{id:'root',parent_id:null,ply:0},...(exists?[{id:'branch',parent_id:'root',ply:1,move:'a3a4',enabled:false}]:[])]});
+    const api=async(path,body)=>{
+      if(path===operation){
+        calls.push(structuredClone(body));
+        assert.deepEqual(JSON.parse(storage.getItem(PENDING_KEY)).body,body);
+        if(!receipts.has(body.request_id)){
+          commits++;revision++;exists=operation==='editor_restore_branch';
+          const receipt=view(exists?'branch':'root');
+          if(!exists)receipt.removed_branch={id:'synthetic-removal'};
+          receipts.set(body.request_id,structuredClone(receipt));
+        }
+        if(lost){lost=false;throw new Error('synthetic lost acknowledgement');}
+        return structuredClone(receipts.get(body.request_id));
+      }
+      if(path.startsWith('editor?'))return view(new URLSearchParams(path.split('?')[1]).get('node_id')||'root');
+      if(path==='editor_catalog')return{drafts:[]};
+      return{draft_id:'synthetic',node_id:exists?'branch':'root',revision,status:'ready',primary:{status:'verified'}};
+    };
+    const options={storage,automaticRecommendations:false,newId:()=> 'synthetic-durable-request'};
+    const first=new Controller(api,()=>{},options);
+    await first.open('synthetic',exists?'branch':'root');
+    assert.equal(await(operation==='editor_remove_branch'?first.removeBranch():first.restoreBranch('synthetic-removal')),false);
+    const pending=structuredClone(first.state.pending);
+    assert.equal(pending.path,operation);assert.equal(commits,1);
+    const reloaded=new Controller(api,()=>{},options);
+    assert.deepEqual(reloaded.state.pending,pending);
+    assert.equal(await reloaded.retry(),true);
+    assert.deepEqual(calls,[pending.body,pending.body]);assert.equal(commits,1);
+    assert.equal(reloaded.state.pending,null);assert.equal(storage.getItem(PENDING_KEY),null);
+    assert.equal(reloaded.state.view.current.id,exists?'branch':'root');reloaded.leave();
+  });
+}
+
+function recordingFixture({existing=false,included=false}={}){
+  const calls=[],data=new Map();let revision=1,node='root',exists=existing;
+  const view=()=>({id:'synthetic',revision,root_id:'root',
+    current:{id:node,fen:'9/9/9/9/9/9/9/9/9/9 w',legal_moves:['a3a4']},
+    edges:node==='root'&&exists?[{move:'a3a4'}]:[],
+    nodes:[{id:'root',parent_id:null,ply:0},...(exists?[{id:'leaf',parent_id:'root',ply:1,move:'a3a4',enabled:included}]:[])]});
+  const storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value),removeItem:key=>data.delete(key)};
+  const api=async(path,body)=>{
+    calls.push({path,body:body&&structuredClone(body)});
+    if(path==='editor_record'){exists=true;node='leaf';revision++;return view();}
+    if(path==='editor_remove_branch'){exists=false;node='root';revision++;return{...view(),removed_branch:{id:'synthetic-removal'}};}
+    if(path.startsWith('editor?'))return view();
+    if(path==='editor_catalog')return{drafts:[]};
+    return{draft_id:'synthetic',node_id:node,revision,status:'ready',primary:{status:'verified'}};
+  };
+  return{calls,controller:new Controller(api,()=>{},{storage,automaticRecommendations:false,newId:()=> 'synthetic-'+calls.length})};
+}
+
+test('undo removes a newly recorded unselected leaf through the recoverable API',async()=>{
+  const f=recordingFixture();await f.controller.open('synthetic');await f.controller.record('a3a4');
+  assert.equal(await f.controller.undoRecord(),true);
+  const removals=f.calls.filter(call=>call.path==='editor_remove_branch');
+  assert.equal(removals.length,1);assert.equal(removals[0].body.node_id,'leaf');
+  assert.equal(f.controller.state.view.current.id,'root');
+  assert.equal(f.controller.state.lastRemoved.branch_id,'synthetic-removal');f.controller.leave();
+});
+
+test('undo never treats an existing draft edge as a new recording',async()=>{
+  const f=recordingFixture({existing:true});await f.controller.open('synthetic');await f.controller.record('a3a4');
+  assert.equal(f.controller.state.lastRecorded,null);
+  assert.equal(await f.controller.undoRecord(),false);
+  assert.equal(f.calls.some(call=>call.path==='editor_remove_branch'),false);f.controller.leave();
+});
+
+test('undo refuses included nodes, descendants and a changed revision',async()=>{
+  const included=recordingFixture({included:true});await included.controller.open('synthetic');await included.controller.record('a3a4');
+  assert.equal(await included.controller.undoRecord(),false);included.controller.leave();
+  const f=recordingFixture();await f.controller.open('synthetic');await f.controller.record('a3a4');
+  f.controller.state.view.nodes.push({id:'descendant',parent_id:'leaf',ply:2,move:'a6a5',enabled:false});
+  assert.equal(await f.controller.undoRecord(),false);
+  f.controller.state.view.nodes.pop();f.controller.state.view.revision++;
+  assert.equal(await f.controller.undoRecord(),false);
+  assert.equal(f.calls.some(call=>call.path==='editor_remove_branch'),false);f.controller.leave();
+});
+
+test('branch summary counts only the chosen subtree and leaves siblings outside it',()=>{
+  const view={root_id:'root',nodes:[{id:'root',parent_id:null,ply:0},
+    {id:'chosen',parent_id:'root',ply:1,move:'a3a4',enabled:true},
+    {id:'child',parent_id:'chosen',ply:2,move:'a6a5',enabled:false},
+    {id:'grandchild',parent_id:'child',ply:3,move:'c3c4',enabled:true},
+    {id:'sibling',parent_id:'root',ply:1,move:'c3c4',enabled:true},
+    {id:'sibling-child',parent_id:'sibling',ply:2,move:'c6c5',enabled:true}]};
+  const before=structuredClone(view),summary=branchSummary(view,'chosen');
+  assert.equal(summary.node_count,3);assert.equal(summary.included_count,2);
+  assert.equal(summary.parent_id,'root');assert.equal(summary.id,'chosen');
+  assert.equal(branchSummary(view,'root'),null);assert.equal(branchSummary(view,'missing'),null);
+  assert.deepEqual(view,before);
+});
+
+test('readLatest falls back to the root if a replay receipt selects a removed node',async()=>{
+  const calls=[];
+  const c=new Controller(async(path)=>{
+    calls.push(path);
+    if(path.includes('node_id=removed')){const error=new Error('synthetic removed node');error.code='node_not_found';throw error;}
+    return{id:'synthetic',revision:9,current:{id:'root',fen:'9/9/9/9/9/9/9/9/9/9 w'}};
+  });
+  assert.equal((await c.readLatest('synthetic','removed')).current.id,'root');
+  assert.deepEqual(calls,['editor?id=synthetic&node_id=removed','editor?id=synthetic']);
+});
+
+test('readLatest does not disguise an unrelated read failure as a removed node',async()=>{
+  const calls=[];
+  const c=new Controller(async(path)=>{calls.push(path);const error=new Error('synthetic unavailable');error.code='unavailable';throw error;});
+  await assert.rejects(c.readLatest('synthetic','leaf'),/synthetic unavailable/);
+  assert.equal(calls.length,1);
 });

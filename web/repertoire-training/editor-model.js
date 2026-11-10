@@ -1,7 +1,7 @@
 (function(scope){
   'use strict';
   const PENDING_KEY='qipuwu-repertoire-editor-request-v1';
-  const operations=new Set(['editor_create','editor_update','editor_record','editor_toggle','editor_terminal','editor_publish']);
+  const operations=new Set(['editor_create','editor_update','editor_record','editor_toggle','editor_terminal','editor_publish','editor_remove_branch','editor_restore_branch']);
   function pendingValue(value){
     return value&&operations.has(value.path)&&value.body&&typeof value.body.request_id==='string'&&
       (value.path==='editor_create'||typeof value.body.id==='string')?value:null;
@@ -27,6 +27,14 @@
     }
     const root=byId.get(view?.root_id);if(root)visit(root,[]);return result;
   }
+  function branchSummary(view,nodeId){
+    const nodes=view?.nodes||[],root=nodes.find(node=>node.id===nodeId);
+    if(!root?.parent_id||root.id===view.root_id)return null;
+    const children=new Map();for(const node of nodes){if(!children.has(node.parent_id))children.set(node.parent_id,[]);children.get(node.parent_id).push(node);}
+    const stack=[root],seen=new Set();let included=0;
+    while(stack.length){const node=stack.pop();if(seen.has(node.id))continue;seen.add(node.id);if(node.enabled)included++;stack.push(...(children.get(node.id)||[]));}
+    return{id:root.id,name:root.name||root.move,ply:root.ply,parent_id:root.parent_id,node_count:seen.size,included_count:included};
+  }
   class Controller{
     constructor(api,changed=()=>{},options={}){
       this.api=api;this.changed=changed;this.storage=options.storage||null;
@@ -35,7 +43,7 @@
       this.automaticRecommendations=options.automaticRecommendations!==false;this.automaticRequested=new Set();
       this.automaticAttempts=new Map();this.readFailures=0;this.viewAbort=null;this.onRenderError=options.onRenderError||(()=>{});
       this.visible=true;this.generation=0;this.recommendationGeneration=0;this.timer=null;this.abort=null;
-      this.state={drafts:[],view:null,loading:false,busy:false,error:'',notice:'',pending:null,recommendations:null,recommendationLoading:false,recommendationBusy:false,recommendationError:''};
+      this.state={drafts:[],view:null,loading:false,busy:false,error:'',notice:'',pending:null,lastRecorded:null,lastRemoved:null,recommendations:null,recommendationLoading:false,recommendationBusy:false,recommendationError:''};
       try{this.state.pending=pendingValue(JSON.parse(this.storage?.getItem(PENDING_KEY)||'null'));}catch(_){}
     }
     notify(kind='editor'){try{this.changed(this.state,kind);}catch(error){try{this.onRenderError(error,kind);}catch(_){}}}
@@ -54,6 +62,7 @@
     }
     async open(id,nodeId='',options={}){
       if(this.state.busy||this.state.pending&&!options.recovery)return false;
+      this.state.lastRecorded=null;
       this.viewAbort?.abort();this.viewAbort=typeof AbortController!=='undefined'?new AbortController():null;
       const signal=this.viewAbort?.signal;
       const token=++this.generation;this.stopRecommendations();this.readFailures=0;if(this.state.view?.id!==id){this.state.view=null;this.state.recommendations=null;}this.state.loading=true;this.state.error='';this.notify();
@@ -62,24 +71,29 @@
       finally{if(token===this.generation){this.viewAbort=null;this.state.loading=false;this.notify();if(this.state.view&&this.visible)this.loadRecommendations();}}
     }
     savePending(value){if(value){if(!this.storage)throw new Error('No local storage');this.storage.setItem(PENDING_KEY,JSON.stringify(value));}else{try{this.storage?.removeItem(PENDING_KEY);}catch(_){}}this.state.pending=value;}
+    async readLatest(id,nodeId){try{return await this.api('editor?id='+encodeURIComponent(id)+(nodeId?'&node_id='+encodeURIComponent(nodeId):''));}catch(error){if(error.code!=='node_not_found')throw error;return this.api('editor?id='+encodeURIComponent(id));}}
     async mutate(path,body){
       const s=this.state;if(s.busy||s.loading)return false;
       if(s.pending&&(s.pending.path!==path||JSON.stringify(s.pending.body)!==JSON.stringify(body)))return false;
       try{this.savePending({path,body});}catch(_){s.error='浏览器无法保存这次请求，本次尚未提交。请恢复本地存储后重试。';this.notify();return false;}
       const keepNode=path==='editor_toggle'&&s.view?.id===body.id&&s.view.current.id!==body.node_id?s.view.current.id:null;
+      const newRecord=path==='editor_record'&&!(s.view?.edges||[]).some(edge=>edge.move===body.move);
       const token=++this.generation;this.stopRecommendations();s.busy=true;s.error='';s.notice='';this.notify();
       try{
         const receipt=await this.api(path,body);
         if(!receipt?.id||!receipt.current?.id)throw new Error('录谱保存结果尚未确认，请重试核对。');
         // A replay receipt can be old. Always read the latest committed draft
         // before allowing another edit, preserving the selected actual path.
-        const view=await this.api('editor?id='+encodeURIComponent(receipt.id)+'&node_id='+encodeURIComponent(keepNode||receipt.current.id));
+        const view=await this.readLatest(receipt.id,keepNode||receipt.current.id);
         if(token!==this.generation)return false;
         this.accept(view);this.savePending(null);
-        s.notice=path==='editor_publish'?'已发布为训练版本 '+(receipt.published?.version||view.published_version||'')+'。草稿以后仍可继续修改。':path==='editor_record'?'着法已保存。可勾选刚走的这着纳入训练。':path==='editor_toggle'?(body.enabled?'这着已纳入训练。':'这着已移出训练，草稿保留。'):'已保存。';
+        s.lastRecorded=newRecord?{draft_id:view.id,node_id:receipt.current.id,revision:view.revision}:null;
+        if(path==='editor_remove_branch'&&receipt.removed_branch?.id)s.lastRemoved={draft_id:view.id,branch_id:receipt.removed_branch.id};
+        if(path==='editor_restore_branch'&&s.lastRemoved?.branch_id===body.branch_id)s.lastRemoved=null;
+        s.notice=path==='editor_remove_branch'?'已移入已删除分支，可随时恢复。':path==='editor_restore_branch'?'分支已恢复，原来的纳入和终点设置已保留。':path==='editor_publish'?'已发布为训练版本 '+(receipt.published?.version||view.published_version||'')+'。草稿以后仍可继续修改。':path==='editor_record'?'着法已保存。可勾选刚走的这着纳入训练。':path==='editor_toggle'?(body.enabled?'这着已纳入训练。':'这着已移出训练，草稿保留。'):'已保存。';
         this.catalog();return true;
       }catch(error){
-        if(error.definitive===true){this.savePending(null);if(body.id){try{const selected=keepNode||body.node_id;this.accept(await this.api('editor?id='+encodeURIComponent(body.id)+(selected?'&node_id='+encodeURIComponent(selected):'')));}catch(_){}}}
+        if(error.definitive===true){this.savePending(null);if(body.id){try{this.accept(await this.readLatest(body.id,keepNode||body.node_id));}catch(_){}}}
         s.error=error.message||'保存结果尚未确认，请重试核对同一次请求。';return false;
       }finally{if(token===this.generation){s.busy=false;this.notify();if(s.view&&this.visible)this.loadRecommendations();}}
     }
@@ -91,6 +105,9 @@
     toggleIncoming(enabled){const v=this.state.view,node=v?.nodes?.find(value=>value.id===v.current.id);return node?.parent_id?this.edit('editor_toggle',{node_id:node.parent_id,move:node.move,enabled:!!enabled}):Promise.resolve(false);}
     toggleNode(id,enabled){const node=this.state.view?.nodes?.find(value=>value.id===id);return node?.parent_id?this.edit('editor_toggle',{node_id:node.parent_id,move:node.move,enabled:!!enabled}):Promise.resolve(false);}
     terminal(value){return this.edit('editor_terminal',{node_id:this.state.view.current.id,terminal:!!value});}
+    removeBranch(nodeId=this.state.view?.current.id){return branchSummary(this.state.view,nodeId)?this.edit('editor_remove_branch',{node_id:nodeId}):Promise.resolve(false);}
+    restoreBranch(removalId){return typeof removalId==='string'?this.edit('editor_restore_branch',{branch_id:removalId}):Promise.resolve(false);}
+    undoRecord(){const s=this.state,v=s.view,last=s.lastRecorded,branch=branchSummary(v,v?.current.id);return last?.draft_id===v?.id&&last?.node_id===v?.current.id&&last?.revision===v?.revision&&branch?.node_count===1&&branch.included_count===0?this.removeBranch(branch.id):Promise.resolve(false);}
     publish(){return this.edit('editor_publish');}
     retry(){const value=this.state.pending;return value?this.mutate(value.path,value.body):Promise.resolve(false);}
     leave(){if(this.state.busy||this.state.pending)return false;++this.generation;this.viewAbort?.abort();this.viewAbort=null;this.stopRecommendations();this.visible=false;this.state.loading=false;return true;}
@@ -130,5 +147,5 @@
       }}
     }
   }
-  const api={Controller,pendingValue,scoreText,routes,PENDING_KEY};if(typeof module!=='undefined'&&module.exports)module.exports=api;scope.RepertoireEditor=api;
+  const api={Controller,pendingValue,scoreText,routes,branchSummary,PENDING_KEY};if(typeof module!=='undefined'&&module.exports)module.exports=api;scope.RepertoireEditor=api;
 })(typeof window!=='undefined'?window:globalThis);

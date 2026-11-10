@@ -42,8 +42,8 @@
       "source": "web/repertoire-training/editor-model.js",
       "target": "web/repertoire-training/editor-model.js",
       "kind": "unchanged_source",
-      "source_sha256": "adc6a33e11f74a4a58f3d6c53cd2de6043caf4636f174ef13c5e944195702ee1",
-      "export_sha256": "adc6a33e11f74a4a58f3d6c53cd2de6043caf4636f174ef13c5e944195702ee1"
+      "source_sha256": "521d86dec6243b5aaef3233a29a2a6821eb69ee5cfa4a6e3cc666f9d70baee72",
+      "export_sha256": "521d86dec6243b5aaef3233a29a2a6821eb69ee5cfa4a6e3cc666f9d70baee72"
     },
     {
       "source": "scripts/opening_classifier.py",
@@ -66,7 +66,7 @@
       "editor",
       "recommendations"
     ],
-    "public_tests": "synthetic API, browser timer semantics, retry and pending-reference navigation",
+    "public_tests": "synthetic API, timers, automatic retry, pending navigation, branch scope and durable recovery",
     "not_exported": [
       "website UI",
       "recommendation backend",
@@ -75,6 +75,9 @@
       "personal state",
       "engine receipts",
       "engine binaries"
-    ]
+    ],
+    "branch_recovery": "durable remove/restore requests, exact replay and stale selected-node fallback",
+    "undo_record": "only a new unselected leaf at the same draft revision",
+    "backend_snapshot": "previously published backend source unchanged; new branch recovery backend not exported"
   }
 }
