@@ -8,8 +8,8 @@
   }
   function scoreText(value){
     if(value?.type==='cp'&&Number.isFinite(value.cp))return(value.cp>0?'+':'')+(value.cp/100).toFixed(2);
-    if(value?.type==='mate'&&Number.isInteger(value.mate_distance))return value.mate_distance===0?'�ѱ�����':value.mate_distance>0?'�ɽ�ɱ �� '+value.mate_distance+'��':'����ɱ �� '+Math.abs(value.mate_distance)+'��';
-    return '����δȷ��';
+    if(value?.type==='mate'&&Number.isInteger(value.mate_distance))return value.mate_distance===0?'已被将死':value.mate_distance>0?'可将杀 · '+value.mate_distance+'步':'被将杀 · '+Math.abs(value.mate_distance)+'步';
+    return '分数未确认';
   }
   function routes(view,filter='included'){
     const nodes=view?.nodes||[],byId=new Map(nodes.map(node=>[node.id,node])),children=new Map();
@@ -21,7 +21,7 @@
       if((!next.length||ended)&&route.length&&(filter==='all'||route.some(value=>value.enabled))){
         const selected=route.every(value=>value.enabled),conflict=ended&&next.some(value=>value.enabled);
         const firstSelected=route.findIndex(value=>value.enabled),draftPrefix=firstSelected>0;
-        result.push({id:node.id,nodes:route,complete:selected&&ended&&!conflict,status:draftPrefix?'δ������� �� �ݸ�ǰ׺':!selected?'��δ�����ŷ�':conflict?'�յ�����������':ended?'����·��':'����¼��'});
+        result.push({id:node.id,nodes:route,complete:selected&&ended&&!conflict,status:draftPrefix?'未连到起点 · 草稿前缀':!selected?'含未纳入着法':conflict?'终点仍有纳入后继':ended?'完整路线':'继续录制'});
       }
       for(const child of next)visit(child,route);
     }
@@ -43,7 +43,7 @@
     context(){const view=this.state.view;return view?{id:view.id,node_id:view.current.id,revision:view.revision}:null;}
     same(context){const now=this.context();return now&&context&&now.id===context.id&&now.node_id===context.node_id&&now.revision===context.revision;}
     accept(view){
-      if(!view||typeof view.id!=='string'||!Number.isInteger(view.revision)||!view.current?.id||!view.current.fen)throw new Error('¼�׻�ִ��δ�������أ������Ժ˶ԡ�');
+      if(!view||typeof view.id!=='string'||!Number.isInteger(view.revision)||!view.current?.id||!view.current.fen)throw new Error('录谱回执尚未完整返回，请重试核对。');
       const previous=this.state.view;
       if(previous?.id===view.id&&previous.revision>view.revision)return false;
       const changed=!previous||previous.id!==view.id||previous.revision!==view.revision||previous.current.id!==view.current.id;
@@ -62,25 +62,25 @@
     async mutate(path,body){
       const s=this.state;if(s.busy||s.loading)return false;
       if(s.pending&&(s.pending.path!==path||JSON.stringify(s.pending.body)!==JSON.stringify(body)))return false;
-      try{this.savePending({path,body});}catch(_){s.error='������޷�����������󣬱�����δ�ύ����ָ����ش洢�����ԡ�';this.notify();return false;}
+      try{this.savePending({path,body});}catch(_){s.error='浏览器无法保存这次请求，本次尚未提交。请恢复本地存储后重试。';this.notify();return false;}
       const keepNode=path==='editor_toggle'&&s.view?.id===body.id&&s.view.current.id!==body.node_id?s.view.current.id:null;
       const token=++this.generation;this.stopRecommendations();s.busy=true;s.error='';s.notice='';this.notify();
       try{
         const receipt=await this.api(path,body);
-        if(!receipt?.id||!receipt.current?.id)throw new Error('¼�ױ�������δȷ�ϣ������Ժ˶ԡ�');
+        if(!receipt?.id||!receipt.current?.id)throw new Error('录谱保存结果尚未确认，请重试核对。');
         // A replay receipt can be old. Always read the latest committed draft
         // before allowing another edit, preserving the selected actual path.
         const view=await this.api('editor?id='+encodeURIComponent(receipt.id)+'&node_id='+encodeURIComponent(keepNode||receipt.current.id));
         if(token!==this.generation)return false;
         this.accept(view);this.savePending(null);
-        s.notice=path==='editor_publish'?'�ѷ���Ϊѵ���汾 '+(receipt.published?.version||view.published_version||'')+'���ݸ��Ժ��Կɼ����޸ġ�':path==='editor_record'?'�ŷ��ѱ��档�ɹ�ѡ���ߵ���������ѵ����':path==='editor_toggle'?(body.enabled?'����������ѵ����':'�������Ƴ�ѵ�����ݸ屣����'):'�ѱ��档';
+        s.notice=path==='editor_publish'?'已发布为训练版本 '+(receipt.published?.version||view.published_version||'')+'。草稿以后仍可继续修改。':path==='editor_record'?'着法已保存。可勾选刚走的这着纳入训练。':path==='editor_toggle'?(body.enabled?'这着已纳入训练。':'这着已移出训练，草稿保留。'):'已保存。';
         this.catalog();return true;
       }catch(error){
         if(error.definitive===true){this.savePending(null);if(body.id){try{const selected=keepNode||body.node_id;this.accept(await this.api('editor?id='+encodeURIComponent(body.id)+(selected?'&node_id='+encodeURIComponent(selected):'')));}catch(_){}}}
-        s.error=error.message||'��������δȷ�ϣ������Ժ˶�ͬһ������';return false;
+        s.error=error.message||'保存结果尚未确认，请重试核对同一次请求。';return false;
       }finally{if(token===this.generation){s.busy=false;this.notify();if(s.view&&this.visible)this.loadRecommendations();}}
     }
-    create(title,goal=20){if(this.state.busy||this.state.pending||this.state.loading)return Promise.resolve(false);this.state.view=null;this.state.recommendations=null;return this.mutate('editor_create',{title:title.trim()||'�ҵĿ���',goal_plies:goal,request_id:this.newId()});}
+    create(title,goal=20){if(this.state.busy||this.state.pending||this.state.loading)return Promise.resolve(false);this.state.view=null;this.state.recommendations=null;return this.mutate('editor_create',{title:title.trim()||'我的开局',goal_plies:goal,request_id:this.newId()});}
     edit(path,fields={}){const v=this.state.view;if(!v||this.state.pending)return Promise.resolve(false);return this.mutate(path,{id:v.id,revision:v.revision,...fields,request_id:this.newId()});}
     update(title,goal){return this.edit('editor_update',{title:title.trim(),goal_plies:goal});}
     record(move,include=false){const current=this.state.view?.current;if(!current?.legal_moves?.includes(move))return Promise.resolve(false);return this.edit('editor_record',{node_id:current.id,move,...(include?{enabled:true}:{})});}
