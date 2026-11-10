@@ -17,7 +17,7 @@ function fixture(wrap){
   };
   const api=wrap?wrap(base):base;
   const storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value),removeItem:key=>data.delete(key)};
-  return{calls,data,controller:new Controller(api,()=>{},{storage,newId:()=> 'synthetic-'+(++serial)})};
+  return{calls,data,controller:new Controller(api,()=>{},{automaticRecommendations:false,storage,newId:()=> 'synthetic-'+(++serial)})};
 }
 
 test('opening reads references without requesting computation',async()=>{
@@ -59,4 +59,35 @@ test('leaving does not start calculations or retain polling',async()=>{
   assert.equal(f.controller.visible,false);
   assert.equal(f.controller.timer,null);
   assert.equal(f.calls.some(value=>value.path==='editor_recommendations'),false);
+});
+
+
+test('automatic references read a cache before posting once for a missing context',async()=>{
+  const calls=[],timers=new Map();let next=0;
+  const view={id:'synthetic',revision:1,current:{id:'root',fen:'9/9/9/9/9/9/9/9/9/9 w'},nodes:[]};
+  const c=new Controller(async(path,body)=>{
+    calls.push({path,body});if(path.startsWith('editor?'))return view;
+    return{draft_id:'synthetic',node_id:'root',revision:1,status:path==='editor_recommendations'?'queued':'idle',primary:{status:'empty'}};
+  },()=>{},{schedule:fn=>{const id=++next;timers.set(id,fn);return id;},cancel:id=>timers.delete(id)});
+  await c.open('synthetic');await new Promise(resolve=>setImmediate(resolve));
+  assert.ok(calls.findIndex(v=>v.path.includes('?'))<calls.findIndex(v=>v.path==='editor_recommendations'));
+  assert.equal(calls.filter(v=>v.path==='editor_recommendations').length,1);
+  await c.loadRecommendations();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(calls.filter(v=>v.path==='editor_recommendations').length,1);c.leave();
+});
+
+test('verified references do not request a new calculation',async()=>{
+  const calls=[];const c=new Controller(async(path)=>{
+    calls.push(path);if(path.startsWith('editor?'))return{id:'synthetic',revision:1,current:{id:'root',fen:'9/9/9/9/9/9/9/9/9/9 w'}};
+    return{draft_id:'synthetic',node_id:'root',revision:1,status:'ready',primary:{status:'verified'}};
+  });
+  await c.open('synthetic');await new Promise(resolve=>setImmediate(resolve));assert.equal(calls.includes('editor_recommendations'),false);c.leave();
+});
+
+test('automatic refinement keeps polling until ready and leaving cancels its timer',async()=>{
+  const timers=new Map();let next=0;
+  const c=new Controller(async(path)=>path.startsWith('editor?')?{id:'synthetic',revision:1,current:{id:'root',fen:'9/9/9/9/9/9/9/9/9/9 w'}}:
+    {draft_id:'synthetic',node_id:'root',revision:1,status:'ready',primary:{status:'verified'},automatic:{status:'paused'}},()=>{},
+    {schedule:fn=>{const id=++next;timers.set(id,fn);return id;},cancel:id=>timers.delete(id)});
+  await c.open('synthetic');await new Promise(resolve=>setImmediate(resolve));assert.equal(timers.size,1);c.leave();assert.equal(timers.size,0);
 });
