@@ -87,7 +87,7 @@ test('verified references do not request a new calculation',async()=>{
 test('automatic refinement keeps polling until ready and leaving cancels its timer',async()=>{
   const timers=new Map();let next=0;
   const c=new Controller(async(path)=>path.startsWith('editor?')?{id:'synthetic',revision:1,current:{id:'root',fen:'9/9/9/9/9/9/9/9/9/9 w'}}:
-    {draft_id:'synthetic',node_id:'root',revision:1,status:'ready',primary:{status:'verified'},automatic:{status:'paused'}},()=>{},
+    {draft_id:'synthetic',node_id:'root',revision:1,status:'ready',primary:{status:'verified',budget:{nodes:3000000}},automatic:{status:'paused',nodes:12000000}},()=>{},
     {schedule:fn=>{const id=++next;timers.set(id,fn);return id;},cancel:id=>timers.delete(id)});
   await c.open('synthetic');await new Promise(resolve=>setImmediate(resolve));assert.equal(timers.size,1);c.leave();assert.equal(timers.size,0);
 });

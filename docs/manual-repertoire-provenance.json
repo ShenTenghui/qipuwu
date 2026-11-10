@@ -42,8 +42,8 @@
       "source": "web/repertoire-training/editor-model.js",
       "target": "web/repertoire-training/editor-model.js",
       "kind": "unchanged_source",
-      "source_sha256": "93dcf0c85bdee5cd1d79c5e492327c69dc2b76fbdf8606c3c3e1ae2d4236ab9a",
-      "export_sha256": "93dcf0c85bdee5cd1d79c5e492327c69dc2b76fbdf8606c3c3e1ae2d4236ab9a"
+      "source_sha256": "7f6355930c82e316cec4ae90a6167c75e58c4fd4f15f880b2811fbe68f6b8237",
+      "export_sha256": "7f6355930c82e316cec4ae90a6167c75e58c4fd4f15f880b2811fbe68f6b8237"
     },
     {
       "source": "scripts/opening_classifier.py",

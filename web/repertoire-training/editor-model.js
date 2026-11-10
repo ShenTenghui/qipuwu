@@ -102,7 +102,9 @@
         if(token!==this.recommendationGeneration||!this.visible||!this.same(context))return false;
         if(value.draft_id!==context.id||value.node_id!==context.node_id||value.revision!==context.revision)return false;
         s.recommendations=value;accepted=true;
-        if(['queued','running'].includes(value.status)||value.primary?.status==='verifying'||['queued','running','paused'].includes(value.automatic?.status))this.timer=this.schedule(()=>{this.timer=null;this.loadRecommendations();},1500);
+        const refining=['queued','running','paused'].includes(value.automatic?.status)&&
+          (value.primary?.status!=='verified'||(value.automatic.nodes||0)>(value.primary.budget?.nodes||0));
+        if(['queued','running'].includes(value.status)||value.primary?.status==='verifying'||refining)this.timer=this.schedule(()=>{this.timer=null;this.loadRecommendations();},1500);
         return true;
       }catch(error){if(token===this.recommendationGeneration&&error.name!=='AbortError')s.recommendationError=error.message;return false;}
       finally{if(token===this.recommendationGeneration){
