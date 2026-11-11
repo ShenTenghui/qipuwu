@@ -2,7 +2,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const E=require('../web/repertoire-training/editor-model.js');
-const {esc,routeNode,treeHtml}=require('../web/repertoire-training/tree-view.js');
+const {treeHtml,diagramHtml}=require('../web/repertoire-training/tree-view.js');
 
 function fixture(){
   return{root_id:'root',goal_plies:8,nodes:[
@@ -102,9 +102,54 @@ test('identical names under different parents remain distinct actual paths',()=>
 
 test('names and identifiers are HTML escaped before entering text or attributes',()=>{
   const dangerous='<img src=x onerror="alert(1)"> & \'',id='choice" data-injected="yes';
-  const html=routeNode({id,ply:1,name:dangerous,enabled:false});
+  const html=treeHtml({root_id:'root',goal_plies:4,nodes:[{id:'root',parent_id:null,ply:0},
+    {id,parent_id:'root',ply:1,name:dangerous,enabled:false}]},E,'all');
   assert.ok(html.includes('&lt;img'));assert.ok(html.includes('&quot;'));assert.ok(html.includes('&amp;'));assert.ok(html.includes('&#39;'));
   const root=parse(html);assert.equal(all(root,node=>node.tag==='img').length,0);
   assert.equal(all(root,node=>Object.hasOwn(node.attrs,'data-injected')).length,0);
-  assert.equal(esc('&<>"\''),'&amp;&lt;&gt;&quot;&#39;');
 });
+
+test('card diagram shares its prefix once and places alternatives under one parent',()=>{
+  const view=fixture(),root=parse(diagramHtml(view,E,'all'));
+  for(const node of view.nodes)assert.equal(all(root,item=>item.tag==='button'&&item.attrs['data-editor-node']===node.id).length,1);
+  const alpha=findNode(root,'alpha'),beta=findNode(root,'beta');
+  assert.equal(alpha.parent,beta.parent);assert.ok(hasClass(alpha.parent,'diagram-children'));
+  assert.ok(hasClass(alpha,'diagram-step'));assert.ok(hasClass(beta,'diagram-step'));
+  assert.equal(alpha.attrs['data-tree-parent'],'prefix');assert.equal(beta.attrs['data-tree-parent'],'prefix');
+  assert.ok(findNode(alpha,'alpha-cont'));assert.equal(findNode(beta,'alpha-cont'),undefined);
+});
+
+test('card diagram fold keeps only its own continuation hidden and preserves nodes',()=>{
+  const view=fixture(),before=structuredClone(view),collapsed=new Set(['alpha']);
+  const root=parse(diagramHtml(view,E,'all',collapsed)),alpha=findNode(root,'alpha');
+  const continuation=alpha.children.find(node=>typeof node!=='string'&&hasClass(node,'diagram-children'));
+  assert.ok(Object.hasOwn(continuation.attrs,'hidden'));assert.ok(findNode(continuation,'gamma'));
+  const betaContinuation=findNode(root,'beta').children.find(node=>typeof node!=='string'&&hasClass(node,'diagram-children'));
+  assert.equal(Object.hasOwn(betaContinuation.attrs,'hidden'),false);
+  assert.equal(all(alpha,node=>node.attrs['data-editor-fold']==='alpha')[0].attrs['aria-expanded'],'false');
+  assert.ok(all(alpha,node=>hasClass(node,'diagram-note')).some(node=>text(node).includes('3')));
+  assert.deepEqual(view,before);assert.deepEqual([...collapsed],['alpha']);
+});
+
+test('both renderers use the same included and all node sets',()=>{
+  const view=fixture();view.nodes.find(node=>node.id==='prefix').enabled=false;
+  view.nodes.push({id:'draft-only',parent_id:'root',ply:1,name:'Unselected isolated branch',enabled:false});
+  const ids=html=>all(parse(html),node=>node.tag==='button'&&Object.hasOwn(node.attrs,'data-editor-node')).map(node=>node.attrs['data-editor-node']).sort();
+  for(const filter of ['included','all']){
+    const compact=ids(treeHtml(view,E,filter,new Set(['alpha']))),cards=ids(diagramHtml(view,E,filter,new Set(['alpha'])));
+    assert.deepEqual(cards,compact);assert.equal(new Set(cards).size,cards.length);
+    assert.equal(cards.includes('draft-only'),filter==='all');assert.ok(cards.includes('prefix'));
+  }
+});
+
+test('card output escapes adversarial labels and identifiers without adding HTML',()=>{
+  const view=fixture(),node=view.nodes.find(node=>node.id==='delta');
+  node.id='choice" data-injected="true';node.name='<script>alert(1)</script> & \'quoted\'';
+  const html=diagramHtml(view,E,'all'),root=parse(html);
+  assert.ok(html.includes('&lt;script&gt;'));assert.ok(html.includes('&amp;'));assert.ok(html.includes('&#39;quoted&#39;'));
+  assert.equal(all(root,node=>node.tag==='script').length,0);
+  assert.equal(all(root,node=>Object.hasOwn(node.attrs,'data-injected')).length,0);
+  assert.deepEqual(Object.keys(require('../web/repertoire-training/tree-view.js')).sort(),['diagramHtml','esc','routeNode','treeHtml']);
+});
+
+test('existing helper exports remain compatible',()=>{const api=require('../web/repertoire-training/tree-view.js');assert.equal(typeof api.routeNode,'function');assert.equal(api.esc('<name>'),'&lt;name&gt;');});
