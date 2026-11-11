@@ -57,6 +57,38 @@
       ],
       "source_sha256": "185b3a1212e55416ad9a205293457f05e5bee97e3a20cc0b74adf023266f7750",
       "export_sha256": "4978d1763721f9720e8d8113c732c6ec402700e8e8791468053a488f61550e6a"
+    },
+    {
+      "source": "web/repertoire-training/repertoire.js",
+      "target": "web/repertoire-training/tree-view.js",
+      "kind": "exact_source_ranges_with_commonjs_wrapper",
+      "source_sha256": "965d559fc125d479ca79b3d1c09cc7b010484b14d76f4b3a913b2f21bb7560fd",
+      "export_sha256": "4c363788658028b6e05ab6ef0fe1cfbbf00a1bb7a54431a210ef17928b0d0b5f",
+      "ranges": [
+        {
+          "name": "esc",
+          "start_byte": 36,
+          "end_byte_exclusive": 163,
+          "bytes": 127,
+          "sha256": "0c150570cda009c78ee6a888727b3c93e2a347e76fbc7d62b5b382b17434d8ed"
+        },
+        {
+          "name": "routeNode",
+          "start_byte": 3983,
+          "end_byte_exclusive": 4740,
+          "bytes": 757,
+          "sha256": "43ba88d5d9d26383302408f2124402024f44d6941397d205b3775e330fffa36b"
+        },
+        {
+          "name": "treeHtml",
+          "start_byte": 5613,
+          "end_byte_exclusive": 7864,
+          "bytes": 2251,
+          "sha256": "103050e9ff46fc4d1ca105f59f479ad5b1990f504ad0a32cea7940dbf750824f"
+        }
+      ],
+      "range_convention": "zero-based byte offsets, end exclusive; raw UTF-8 source[start:end]",
+      "wrapper": "strict mode, comment and CommonJS exports only; no function edits"
     }
   ],
   "controller_scope": {
@@ -79,5 +111,17 @@
     "branch_recovery": "durable remove/restore requests, exact replay and stale selected-node fallback",
     "undo_record": "only a new unselected leaf at the same draft revision",
     "backend_snapshot": "previously published backend source unchanged; new branch recovery backend not exported"
+  },
+  "tree_view_scope": {
+    "output": "HTML string only",
+    "model_dependency": "injected editor-model.js routes(view, filter)",
+    "not_exported": [
+      "website wiring",
+      "CSS",
+      "backend",
+      "private data",
+      "screenshots"
+    ],
+    "local_test_dependency": "previously published editor-model.js copied for standalone testing; not part of payload"
   }
 }

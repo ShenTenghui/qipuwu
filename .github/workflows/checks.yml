@@ -26,3 +26,6 @@ jobs:
 
       - name: Check the standalone editor controller
         run: node --test tests/editor-controller.test.cjs
+
+      - name: Check the selected tree HTML renderer
+        run: node --test tests/tree-view.test.cjs
